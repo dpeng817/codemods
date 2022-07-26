@@ -20,7 +20,7 @@ class LegacyImportCommand(VisitorBasedCodemodCommand):
             "--imported",
             dest="symbols",
             metavar="LIST",
-            help="Imported symbols to move to `dagster.__legacy",
+            help="Imported symbols to move to `dagster._legacy",
             nargs="+",
             required=True,
         )
