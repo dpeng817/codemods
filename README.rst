@@ -33,17 +33,6 @@
 codemods
 ========
 
+Various tools for automated modification of python code that utilize (libCST)[https://libcst.readthedocs.io/en/latest/index.html].
 
-    Add a short description here!
-
-
-A longer description of your project goes here...
-
-
-.. _pyscaffold-notes:
-
-Note
-====
-
-This project has been set up using PyScaffold 4.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+In order to use these codemods, editable install this repo, and run `codemod` from the command line.
