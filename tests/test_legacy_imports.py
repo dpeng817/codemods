@@ -76,7 +76,28 @@ class TestLegacyImportCommand(CodemodTest):
         """
         after = """
             from dagster import ModeDefinition, repository, asset
-            from dagster._legacy import pipeline, AssetGroup
+            from dagster._legacy import AssetGroup, pipeline
         """
 
         self.assertCodemod(before, after, symbols=["AssetGroup", "pipeline"])
+
+    def test_substitution_multiline_legacy_already_exists(self) -> None:
+        before = """
+            from dagster import (
+                ModeDefinition,
+                PipelineDefinition,
+                repository,
+                AssetGroup,
+                asset
+            )
+            from dagster._legacy import pipeline
+        """
+        after = """
+            from dagster import repository, asset
+            from dagster._legacy import AssetGroup, ModeDefinition, PipelineDefinition, pipeline
+        """
+        self.assertCodemod(
+            before,
+            after,
+            symbols=["AssetGroup", "pipeline", "PipelineDefinition", "ModeDefinition"],
+        )

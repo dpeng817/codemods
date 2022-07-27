@@ -34,7 +34,7 @@ class LegacyImportCommand(VisitorBasedCodemodCommand):
 
     def leave_ImportFrom(
         self, original_node: cst.ImportFrom, updated_node: cst.ImportFrom
-    ) -> cst.ImportFrom:
+    ) -> Union[cst.ImportFrom, cst.RemovalSentinel]:
         if (
             original_node.module
             and original_node.module.value == "dagster"
@@ -43,12 +43,14 @@ class LegacyImportCommand(VisitorBasedCodemodCommand):
             # Check to see if the string matches what we want to replace. If so,
             # then we do the replacement. We also know at this point that we need
             # to import the constant itself.
-            symbols = _get_imported_symbols_to_change(original_node, self.symbols)
-            AddImportsVisitor.add_needed_import(
-                self.context,
-                "dagster._legacy",
-                ", ".join(symbols),
-            )
+            for symbol in sorted(
+                list(_get_imported_symbols_to_change(original_node, self.symbols))
+            ):
+                AddImportsVisitor.add_needed_import(
+                    self.context,
+                    "dagster._legacy",
+                    symbol,
+                )
             return _get_import_without_symbols(original_node, self.symbols)
         # This isn't an import we're concerned with, so leave it unchanged.
         return updated_node
@@ -70,7 +72,7 @@ def _get_imported_symbols_to_change(node: cst.ImportFrom, symbols: Set[str]) -> 
 
 
 def _get_import_without_symbols(
-    node: cst.ImportFrom, symbols: str
+    node: cst.ImportFrom, symbols: Set[str]
 ) -> Union[cst.ImportFrom, cst.RemovalSentinel]:
     imports = []
     for i, import_alias in enumerate(node.names):
