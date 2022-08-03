@@ -1,0 +1,99 @@
+from libcst.codemod import CodemodTest
+from codemods.codemod_solid import CodemodSolid
+
+
+class TestInputOutputDefsChange(CodemodTest):
+
+    # The codemod that will be instantiated for us in assertCodemod.
+    TRANSFORM = CodemodSolid
+
+    def test_noop(self) -> None:
+        before = """
+            @solid
+            def the_solid():
+                pass
+        """
+        after = """
+            @op
+            def the_op():
+                pass
+        """
+
+        self.assertCodemod(
+            before,
+            after,
+        )
+
+    def test_substitution_input_only(self) -> None:
+        before = """
+            @solid(input_defs=[InputDefinition("hi", dagster_type=str)])
+            def the_solid():
+                pass
+
+            @solid(input_defs=[InputDefinition(dagster_type=str, name="hi")])
+            def the_solid():
+                pass
+        """
+        after = """
+            @op(ins = {"hi": In(dagster_type=str)})
+            def the_op():
+                pass
+
+            @op(ins = {"hi": In(dagster_type=str, )})
+            def the_op():
+                pass
+        """
+
+        self.assertCodemod(before, after)
+
+    def test_substitution_output_only(self) -> None:
+        before = """
+            @solid(output_defs=[OutputDefinition(dagster_type=str)])
+            def the_solid():
+                pass
+
+            @solid(output_defs=[OutputDefinition("foo", dagster_type=str), OutputDefinition(dagster_type=str, name="bar")])
+            def the_solid():
+                pass
+
+            @solid(output_defs=[DynamicOutputDefinition("foo", dagster_type=str), OutputDefinition(dagster_type=str, name="bar")])
+            def the_solid():
+                pass
+        """
+        after = """
+            @op(out = Out(dagster_type=str))
+            def the_op():
+                pass
+
+            @op(out = {"foo": Out(dagster_type=str), "bar": Out(dagster_type=str, )})
+            def the_op():
+                pass
+
+            @op(out = {"foo": DynamicOut(dagster_type=str), "bar": Out(dagster_type=str, )})
+            def the_op():
+                pass
+        """
+
+        self.assertCodemod(before, after)
+
+    def test_output_substitution(self) -> None:
+        before = """
+            @solid(output_defs=[OutputDefinition(str)])
+            def the_solid():
+                pass
+
+            @solid(output_defs=[OutputDefinition(str, "foo")])
+            def the_solid():
+                pass
+        """
+        after = """
+            @op(out = Out(str))
+            def the_op():
+                pass
+
+            @op(out = {"foo": Out(str, )})
+            def the_op():
+                pass
+        """
+
+        self.assertCodemod(before, after)

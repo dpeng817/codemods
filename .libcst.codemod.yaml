@@ -15,4 +15,4 @@ modules:
 # Absolute or relative path of the repository root, used for providing
 # full-repo metadata. Relative paths should be specified with this file
 # location as the base.
-repo_root: '/Users/christopherdecarolis/dagster_2'
+repo_root: '/Users/christopherdecarolis/internal/python_modules'
