@@ -146,7 +146,7 @@
 				"args": [
 					"/Users/christopherdecarolis/codemods/tests/test_codemod_solid.py"
 				],
-				"justMyCode": true,
+				"justMyCode": false,
 			},
 			{
 				"name": "fix invocations",
@@ -218,7 +218,7 @@
 				"args": [
 					"codemod",
 					"codemod_solid.CodemodSolid",
-					"/Users/christopherdecarolis/dagster_2/python_modules/dagster/dagster_tests",
+					"/Users/christopherdecarolis/dagster_2",
 				],
 				"justMyCode": true,
 			},

@@ -1,10 +1,11 @@
 import argparse
 from ast import literal_eval
-from typing import Union, Sequence, Set, Optional, Tuple, cast
+from typing import Union, Sequence, Set, Optional, Tuple, cast, Dict
 
 import libcst as cst
 from libcst.codemod import CodemodContext, VisitorBasedCodemodCommand
 from libcst.codemod.visitors import AddImportsVisitor
+from libcst.codemod._visitor import ContextAwareTransformer
 
 
 class CodemodSolid(VisitorBasedCodemodCommand):
@@ -29,6 +30,22 @@ class CodemodSolid(VisitorBasedCodemodCommand):
         # this init.
         super().__init__(context)
 
+    def transform_module(self, tree: cst.Module) -> cst.Module:
+        tree = super().transform_module(tree)
+
+        supported_transforms: Dict[str, Type[Codemod]] = {
+            RenameVariablesVisitor.CONTEXT_KEY: RenameVariablesVisitor,
+        }
+
+        # For any visitors that we support auto-running, run them here if needed.
+        for key, transform in supported_transforms.items():
+            if key in self.context.scratch:
+                # We have work to do, so lets run this.
+                tree = self._instantiate_and_run(transform, tree)
+
+        # We're finally done!
+        return tree
+
     def leave_FunctionDef(
         self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef
     ) -> cst.FunctionDef:
@@ -41,47 +58,36 @@ class CodemodSolid(VisitorBasedCodemodCommand):
         return updated_node
 
     def replace_solid(self, node: cst.FunctionDef) -> cst.FunctionDef:
-        new_name = node.name.value.replace("solid", "op")
-        solid_decorator_pos = _get_solid_decorator_pos(node.decorators)
-        replaced_decorator = self._replace_decorator(node.decorators[solid_decorator_pos])
+        solid_def = node
+        new_name = solid_def.name.value.replace("solid", "op")
+        RenameVariablesVisitor.rename_variable(self.context, solid_def.name.value, new_name)
+        solid_decorator_pos = _get_solid_decorator_pos(solid_def.decorators)
+        replaced_decorator = self._replace_decorator(solid_def.decorators[solid_decorator_pos])
         new_decorator_list = [
             decorator if i != solid_decorator_pos else replaced_decorator
-            for i, decorator in enumerate(node.decorators)
+            for i, decorator in enumerate(solid_def.decorators)
         ]
-        return cst.FunctionDef(
-            name=cst.Name(value=new_name),
-            params=node.params,
-            body=node.body,
+
+        return solid_def.with_changes(
+            name=solid_def.name.with_changes(value=new_name),
             decorators=new_decorator_list,
-            returns=node.returns,
-            asynchronous=node.asynchronous,
-            leading_lines=node.leading_lines,
-            lines_after_decorators=node.lines_after_decorators,
-            whitespace_after_def=node.whitespace_after_def,
-            whitespace_after_name=node.whitespace_after_name,
-            whitespace_before_params=node.whitespace_before_params,
-            whitespace_before_colon=node.whitespace_before_colon,
+            body=self._instantiate_and_run(
+                RenameVariablesWithinSolidFunctionVisitor, solid_def.body
+            ),
         )
 
     def _replace_decorator(self, decorator: cst.Decorator) -> cst.Decorator:
+        AddImportsVisitor.add_needed_import(
+            self.context,
+            "dagster",
+            "op",
+        )
         if isinstance(decorator.decorator, cst.Name):
-            return cst.Decorator(
-                decorator=cst.Name(
-                    value="op", lpar=decorator.decorator.lpar, rpar=decorator.decorator.rpar
-                ),
-                leading_lines=decorator.leading_lines,
-                whitespace_after_at=decorator.whitespace_after_at,
-                trailing_whitespace=decorator.trailing_whitespace,
-            )
+            return decorator.with_changes(decorator=decorator.decorator.with_changes(value="op"))
         else:
             call_node = cast(cst.Call, decorator.decorator)
             new_call = self._replace_args(call_node)
-            return cst.Decorator(
-                decorator=new_call,
-                leading_lines=decorator.leading_lines,
-                whitespace_after_at=decorator.whitespace_after_at,
-                trailing_whitespace=decorator.trailing_whitespace,
-            )
+            return decorator.with_changes(decorator=new_call)
 
     def _replace_args(self, node: cst.Call) -> cst.Call:
         return self._replace_arg(self._replace_arg(node, "input"), "output")
@@ -98,18 +104,13 @@ class CodemodSolid(VisitorBasedCodemodCommand):
 
         pos = self._get_arg_pos(node.args, original_arg_name)
         if pos is None:
-            return node
+            return node.with_changes(func=node.func.with_changes(value="op"))
         arg = node.args[pos]
         new_arg = cst.Arg(keyword=cst.Name(value=keyword), value=_convert_fn(arg.value))
 
         new_arg_list = [node.args[i] if i != pos else new_arg for i in range(len(node.args))]
 
-        return cst.Call(
-            func=cst.Name(value="op"),
-            args=new_arg_list,
-            lpar=node.lpar,
-            rpar=node.rpar,
-        )
+        return node.with_changes(func=node.func.with_changes(value="op"), args=new_arg_list)
 
     def _get_arg_pos(self, arg_list: Sequence[cst.Arg], keyword: str) -> Optional[int]:
         for i, arg in enumerate(arg_list):
@@ -127,6 +128,11 @@ class CodemodSolid(VisitorBasedCodemodCommand):
                 value=cst.Call(func=cst.Name(value="In"), args=rest_of_args),
             )
             dict_elements.append(dict_element)
+            AddImportsVisitor.add_needed_import(
+                self.context,
+                "dagster",
+                "In",
+            )
         return cst.Dict(elements=dict_elements)
 
     def _convert_output_defs_to_out(self, output_defs_list: cst.List) -> cst.Dict:
@@ -135,6 +141,11 @@ class CodemodSolid(VisitorBasedCodemodCommand):
             output_def_args = output_def_call.value.args
             new_type = (
                 "Out" if output_def_call.value.func.value == "OutputDefinition" else "DynamicOut"
+            )
+            AddImportsVisitor.add_needed_import(
+                self.context,
+                "dagster",
+                new_type,
             )
             name, rest_of_args = self._extract_name_from_output_def_args(output_def_args)
             # Singleton output case
@@ -195,3 +206,42 @@ def _get_solid_decorator_pos(decorator_seq: Sequence[cst.Decorator]) -> bool:
             return i
 
     return -1
+
+
+class RenameVariablesVisitor(ContextAwareTransformer):
+
+    CONTEXT_KEY = "RenameVariablesVisitor"
+
+    @staticmethod
+    def rename_variable(context: CodemodContext, orig_var_name: str, new_var_name: str) -> None:
+        renames = context.scratch.get(RenameVariablesVisitor.CONTEXT_KEY, {})
+        renames[orig_var_name] = new_var_name
+        context.scratch[RenameVariablesVisitor.CONTEXT_KEY] = renames
+
+    def __init__(self, context: CodemodContext) -> None:
+        super().__init__(context)
+        self.renames = context.scratch[RenameVariablesVisitor.CONTEXT_KEY]
+
+    def leave_Name(self, original_node: cst.Name, updated_node: cst.Name) -> cst.Name:
+        if original_node.value in self.renames:
+            return cst.Name(
+                value=self.renames[original_node.value],
+                lpar=original_node.lpar,
+                rpar=original_node.rpar,
+            )
+        return updated_node
+
+
+class RenameVariablesWithinSolidFunctionVisitor(ContextAwareTransformer):
+    def leave_Name(self, original_node: cst.Name, updated_node: cst.Name) -> cst.Name:
+        if "solid" in original_node.value:
+            return original_node.with_changes(value=original_node.value.replace("solid", "op"))
+        if "pipeline_run" in original_node.value:
+            return original_node.with_changes(
+                value=original_node.value.replace("pipeline_run", "run")
+            )
+        if "pipeline_name" in original_node.value:
+            return original_node.with_changes(
+                value=original_node.value.replace("pipeline_name", "job_name")
+            )
+        return updated_node

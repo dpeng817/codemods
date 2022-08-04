@@ -14,6 +14,8 @@ class TestInputOutputDefsChange(CodemodTest):
                 pass
         """
         after = """
+            from dagster import op
+
             @op
             def the_op():
                 pass
@@ -27,17 +29,19 @@ class TestInputOutputDefsChange(CodemodTest):
     def test_substitution_input_only(self) -> None:
         before = """
             @solid(input_defs=[InputDefinition("hi", dagster_type=str)])
-            def the_solid():
-                pass
+            def the_solid(context):
+                op_config = context.solid_config
 
             @solid(input_defs=[InputDefinition(dagster_type=str, name="hi")])
             def the_solid():
                 pass
         """
         after = """
+            from dagster import In, op
+
             @op(ins = {"hi": In(dagster_type=str)})
-            def the_op():
-                pass
+            def the_op(context):
+                op_config = context.op_config
 
             @op(ins = {"hi": In(dagster_type=str, )})
             def the_op():
@@ -52,24 +56,26 @@ class TestInputOutputDefsChange(CodemodTest):
             def the_solid():
                 pass
 
-            @solid(output_defs=[OutputDefinition("foo", dagster_type=str), OutputDefinition(dagster_type=str, name="bar")])
+            @solid(output_defs=[OutputDefinition(dagster_type=str, name="foo"), OutputDefinition(dagster_type=str, name="bar")])
             def the_solid():
                 pass
 
-            @solid(output_defs=[DynamicOutputDefinition("foo", dagster_type=str), OutputDefinition(dagster_type=str, name="bar")])
+            @solid(output_defs=[DynamicOutputDefinition(dagster_type=str, name="foo"), OutputDefinition(dagster_type=str, name="bar")])
             def the_solid():
                 pass
         """
         after = """
+            from dagster import DynamicOut, Out, op
+
             @op(out = Out(dagster_type=str))
             def the_op():
                 pass
 
-            @op(out = {"foo": Out(dagster_type=str), "bar": Out(dagster_type=str, )})
+            @op(out = {"foo": Out(dagster_type=str, ), "bar": Out(dagster_type=str, )})
             def the_op():
                 pass
 
-            @op(out = {"foo": DynamicOut(dagster_type=str), "bar": Out(dagster_type=str, )})
+            @op(out = {"foo": DynamicOut(dagster_type=str, ), "bar": Out(dagster_type=str, )})
             def the_op():
                 pass
         """
@@ -87,6 +93,8 @@ class TestInputOutputDefsChange(CodemodTest):
                 pass
         """
         after = """
+            from dagster import Out, op
+
             @op(out = Out(str))
             def the_op():
                 pass
@@ -94,6 +102,30 @@ class TestInputOutputDefsChange(CodemodTest):
             @op(out = {"foo": Out(str, )})
             def the_op():
                 pass
+        """
+
+        self.assertCodemod(before, after)
+
+    def test_substitution_actual(self) -> None:
+        before = """
+        @solid(version="foo")
+        def my_solid():
+            return 5
+
+        @pipeline
+        def the_pipeline():
+            my_solid()
+        """
+        after = """
+        from dagster import op
+
+        @op(version="foo")
+        def my_op():
+            return 5
+
+        @pipeline
+        def the_pipeline():
+            my_op()
         """
 
         self.assertCodemod(before, after)
