@@ -30,7 +30,7 @@ class TestInputOutputDefsChange(CodemodTest):
         before = """
             @solid(input_defs=[InputDefinition("hi", dagster_type=str)])
             def the_solid(context):
-                op_config = context.solid_config
+                pass
 
             @solid(input_defs=[InputDefinition(dagster_type=str, name="hi")])
             def the_solid():
@@ -41,7 +41,7 @@ class TestInputOutputDefsChange(CodemodTest):
 
             @op(ins = {"hi": In(dagster_type=str)})
             def the_op(context):
-                op_config = context.op_config
+                pass
 
             @op(ins = {"hi": In(dagster_type=str, )})
             def the_op():
@@ -115,6 +115,10 @@ class TestInputOutputDefsChange(CodemodTest):
         @pipeline
         def the_pipeline():
             my_solid()
+
+        run_config = {"solids": "my_solid"}
+
+        r"this string contains my_solid"
         """
         after = """
         from dagster import op
@@ -126,6 +130,10 @@ class TestInputOutputDefsChange(CodemodTest):
         @pipeline
         def the_pipeline():
             my_op()
+
+        run_config = {"solids": "my_op"}
+
+        r"this string contains my_op"
         """
 
         self.assertCodemod(before, after)

@@ -6,6 +6,7 @@ import libcst as cst
 from libcst.codemod import CodemodContext, VisitorBasedCodemodCommand
 from libcst.codemod.visitors import AddImportsVisitor
 from libcst.codemod._visitor import ContextAwareTransformer
+import libcst.matchers as m
 
 
 class CodemodSolid(VisitorBasedCodemodCommand):
@@ -224,12 +225,21 @@ class RenameVariablesVisitor(ContextAwareTransformer):
 
     def leave_Name(self, original_node: cst.Name, updated_node: cst.Name) -> cst.Name:
         if original_node.value in self.renames:
-            return cst.Name(
-                value=self.renames[original_node.value],
-                lpar=original_node.lpar,
-                rpar=original_node.rpar,
-            )
+            return original_node.with_changes(value=self.renames[original_node.value])
         return updated_node
+
+    def leave_SimpleString(
+        self, original_node: cst.SimpleString, updated_node: cst.SimpleString
+    ) -> cst.SimpleString:
+        new_val = original_node.value
+        for orig_name in self.renames.keys():
+            if orig_name in new_val:
+                new_val = new_val.replace(orig_name, self.renames[orig_name])
+        return original_node.with_changes(value=new_val)
+
+    def _replace_value(self, orig_value: str) -> str:
+        stripped_value = orig_value.strip('"').strip("'")
+        return orig_value.replace(stripped_value, self.renames[stripped_value])
 
 
 class RenameVariablesWithinSolidFunctionVisitor(ContextAwareTransformer):
