@@ -144,7 +144,7 @@
 				"request": "launch",
 				"module": "unittest",
 				"args": [
-					"/Users/christopherdecarolis/codemods/tests/test_codemod_solid.py"
+					"/Users/christopherdecarolis/codemods/tests/test_convert_solid_to_op.py"
 				],
 				"justMyCode": false,
 			},
