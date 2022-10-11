@@ -144,7 +144,7 @@
 				"request": "launch",
 				"module": "unittest",
 				"args": [
-					"/Users/christopherdecarolis/codemods/tests/test_convert_solid_to_op.py"
+					"/Users/christopherdecarolis/codemods/tests/test_convert_pipeline_to_job.py"
 				],
 				"justMyCode": false,
 			},
@@ -211,13 +211,37 @@
 				"justMyCode": true,
 			},
 			{
-				"name": "replace solid invocations",
+				"name": "convert solid to op",
 				"type": "python",
 				"request": "launch",
 				"module": "libcst.tool",
 				"args": [
 					"codemod",
-					"codemod_solid.CodemodSolid",
+					"convert_solid_to_op.ConvertSolidToOp",
+					"/Users/christopherdecarolis/dagster_2/python_modules/dagster/dagster_tests/core_tests/definitions_tests",
+				],
+				"justMyCode": true,
+			},
+			{
+				"name": "convert pipeline to job",
+				"type": "python",
+				"request": "launch",
+				"module": "libcst.tool",
+				"args": [
+					"codemod",
+					"convert_pipeline_to_job.ConvertPipelineToJob",
+					"/Users/christopherdecarolis/dagster/python_modules/libraries/dagster-ge",
+				],
+				"justMyCode": true,
+			},
+			{
+				"name": "convert composite_solid to graph",
+				"type": "python",
+				"request": "launch",
+				"module": "libcst.tool",
+				"args": [
+					"codemod",
+					"convert_composite_to_graph.ConvertCompositeToGraph",
 					"/Users/christopherdecarolis/dagster_2",
 				],
 				"justMyCode": true,

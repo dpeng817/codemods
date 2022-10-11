@@ -7,8 +7,19 @@ class TestConvertSolidToOp(CodemodTest):
     # The codemod that will be instantiated for us in assertCodemod.
     TRANSFORM = ConvertSolidToOp
 
+    def test_noop(self) -> None:
+        before = """
+        """
+
+        after = """
+        """
+
+        self.assertCodemod(
+            before,
+            after,
+        )
+
     def test_solid_variations(self) -> None:
-        self.maxDiff = None
         before = """
             @solid
             def the_solid():
@@ -35,6 +46,8 @@ class TestConvertSolidToOp(CodemodTest):
 
         """
         after = """
+            from dagster import In, Out, op
+
             @op
             def the_op():
                 pass
