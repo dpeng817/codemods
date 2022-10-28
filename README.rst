@@ -33,6 +33,6 @@
 codemods
 ========
 
-Various tools for automated modification of python code that utilize (libCST)[https://libcst.readthedocs.io/en/latest/index.html].
+Modifies dagster code that uses solids/pipelines/modes into code that uses ops/jobs.
 
-In order to use these codemods, editable install this repo, and run `codemod` from the command line.
+In order to use these codemods, editable install this repo, install the `run.sh` script using `chmod +x run.sh`, and run the script on the directory you would like to codemod.
